@@ -1,29 +1,64 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds */
+  /* DysLearnia Brand Colors */
   --background: #fdf6e3;
   --background-secondary: #f0f4ef;
   --foreground: #2c2c2c;
 
-  /* Text */
   --text-primary: #2c2c2c;
   --text-secondary: #555555;
 
-  /* Interactive & Brand */
   --accent: #4a9b8e;
   --accent-hover: #3d8578;
+  --accent-foreground: #ffffff;
   --highlight: #fff9c4;
 
-  /* Gamification & Feedback */
   --gold: #e8a838;
   --success: #4a9b8e;
   --error: #d4806b;
 
+  /* shadcn mappings using DysLearnia palette */
+  --primary: #4a9b8e;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f4ef;
+  --secondary-foreground: #2c2c2c;
+  --muted: #f0f4ef;
+  --muted-foreground: #555555;
+  --card: #fdf6e3;
+  --card-foreground: #2c2c2c;
+  --popover: #fdf6e3;
+  --popover-foreground: #2c2c2c;
+  --destructive: #d4806b;
+  --border: rgba(74, 155, 142, 0.1);
+  --input: rgba(74, 155, 142, 0.15);
+  --ring: #4a9b8e;
+
   /* UI */
-  --radius: 12px;
+  --radius: 0.625rem;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+  /* Sidebar */
+  --sidebar: #fdf6e3;
+  --sidebar-foreground: #2c2c2c;
+  --sidebar-primary: #4a9b8e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f4ef;
+  --sidebar-accent-foreground: #2c2c2c;
+  --sidebar-border: rgba(74, 155, 142, 0.1);
+  --sidebar-ring: #4a9b8e;
+
+  /* Charts */
+  --chart-1: #4a9b8e;
+  --chart-2: #3d8578;
+  --chart-3: #e8a838;
+  --chart-4: #d4806b;
+  --chart-5: #555555;
 }
 
 @theme inline {
@@ -34,16 +69,49 @@
   --color-text-secondary: var(--text-secondary);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
   --color-highlight: var(--highlight);
   --color-gold: var(--gold);
   --color-success: var(--success);
   --color-error: var(--error);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: var(--font-open-dyslexic);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: var(--font-open-dyslexic), sans-serif;
   line-height: 1.8;
   letter-spacing: 0.05em;
@@ -53,4 +121,16 @@ p,
 li,
 blockquote {
   max-width: 70ch;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
