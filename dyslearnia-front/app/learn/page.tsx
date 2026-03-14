@@ -16,6 +16,8 @@ import {
   type Edge,
   type OnNodesChange,
   type OnEdgesChange,
+  type OnEdgesDelete,
+  type OnNodesDelete,
   type OnConnect,
   useReactFlow,
   ReactFlowProvider,
@@ -162,6 +164,25 @@ function Flow() {
     [nodes, edges, hasCycle],
   );
 
+  const onNodesDelete: OnNodesDelete = useCallback(
+    (deleted) => {
+      // Remove edges connected to deleted nodes
+      const deletedIds = new Set(deleted.map((n) => n.id));
+      setEdges((eds) =>
+        eds.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target)),
+      );
+    },
+    [],
+  );
+
+  const onEdgesDelete: OnEdgesDelete = useCallback(
+    (deleted) => {
+      const deletedIds = new Set(deleted.map((e) => e.id));
+      setEdges((eds) => eds.filter((e) => !deletedIds.has(e.id)));
+    },
+    [],
+  );
+
   // Detect cycles in the entire graph (not DAG-safe)
   const graphHasCycle = useMemo(() => {
     const adj = new Map<string, string[]>();
@@ -276,8 +297,11 @@ function Flow() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
+          onNodesDelete={onNodesDelete}
+          onEdgesDelete={onEdgesDelete}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          deleteKeyCode={["Backspace", "Delete"]}
           nodeTypes={nodeTypes}
           fitView
           className="bg-background"
@@ -288,11 +312,6 @@ function Flow() {
             nodeStrokeWidth={3}
             className="!bg-card !border-border"
           />
-          <Panel position="top-center">
-            <div className="rounded-lg border border-border bg-card/90 px-4 py-2 text-sm font-semibold text-foreground shadow-md backdrop-blur-sm">
-              DysLearnia — Learning Pipeline
-            </div>
-          </Panel>
         </ReactFlow>
       </div>
     </div>
