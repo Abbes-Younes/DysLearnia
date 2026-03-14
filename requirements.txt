@@ -1,11 +1,15 @@
 # Python dependencies
 fastapi
 uvicorn
-llama.cpp
-coqui-tts
+pydantic
+llama-cpp-python
+TTS
 sentence-transformers
 faiss-cpu
 whisper
 pytesseract
 Pillow
 pdf2image
+PyMuPDF
+langchain
+langgraph
