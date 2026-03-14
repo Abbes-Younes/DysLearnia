@@ -10,17 +10,14 @@
   --background-secondary: #f0f4ef;
   --foreground: #2c2c2c;
 
-  /* Text */
   --text-primary: #2c2c2c;
   --text-secondary: #555555;
 
-  /* Interactive & Brand */
   --accent: #4a9b8e;
   --accent-hover: #3d8578;
   --accent-foreground: #ffffff;
   --highlight: #fff9c4;
 
-  /* Gamification & Feedback */
   --gold: #e8a838;
   --success: #4a9b8e;
   --error: #d4806b;
