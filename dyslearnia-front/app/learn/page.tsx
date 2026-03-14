@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, type DragEvent } from "react";
+import { useState, useCallback, useMemo, useRef, type DragEvent } from "react";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -29,7 +29,7 @@ const toolbox = [
   { type: "tts", label: "Text to Speech", icon: "🔊" },
   { type: "spacing", label: "Add Spacing", icon: "↔️" },
   { type: "fontFlip", label: "Flip Font", icon: "🔤" },
-  { type: "output", label: "Output", icon: "✅" },
+  { type: "result", label: "Output", icon: "✅" },
 ] as const;
 
 const initialNodes: Node[] = [
@@ -53,7 +53,7 @@ const initialNodes: Node[] = [
   },
   {
     id: "output-1",
-    type: "output",
+    type: "result",
     position: { x: 250, y: 450 },
     data: { label: "Output" },
   },
@@ -162,6 +162,32 @@ function Flow() {
     [nodes, edges, hasCycle],
   );
 
+  // Detect cycles in the entire graph (not DAG-safe)
+  const graphHasCycle = useMemo(() => {
+    const adj = new Map<string, string[]>();
+    for (const node of nodes) adj.set(node.id, []);
+    for (const edge of edges) adj.get(edge.source)?.push(edge.target);
+
+    const visited = new Set<string>();
+    const inStack = new Set<string>();
+
+    const dfs = (id: string): boolean => {
+      visited.add(id);
+      inStack.add(id);
+      for (const neighbor of adj.get(id) ?? []) {
+        if (inStack.has(neighbor)) return true;
+        if (!visited.has(neighbor) && dfs(neighbor)) return true;
+      }
+      inStack.delete(id);
+      return false;
+    };
+
+    for (const node of nodes) {
+      if (!visited.has(node.id) && dfs(node.id)) return true;
+    }
+    return false;
+  }, [nodes, edges]);
+
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -225,6 +251,20 @@ function Flow() {
               {tool.label}
             </div>
           ))}
+        </div>
+
+        <div className="mt-auto pt-4">
+          {graphHasCycle && (
+            <p className="mb-2 text-xs text-error font-medium">
+              Cycle detected — remove a connection to continue
+            </p>
+          )}
+          <button
+            disabled={graphHasCycle}
+            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Execute Pipeline
+          </button>
         </div>
       </aside>
 

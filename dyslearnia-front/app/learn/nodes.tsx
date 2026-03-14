@@ -112,5 +112,5 @@ export const nodeTypes = {
   tts: TTSNode,
   spacing: SpacingNode,
   fontFlip: FontFlipNode,
-  output: OutputNode,
+  result: OutputNode,
 };
