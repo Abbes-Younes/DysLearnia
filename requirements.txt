@@ -1,0 +1,8 @@
+# Python dependencies
+fastapi
+uvicorn
+llama.cpp
+coqui-tts
+sentence-transformers
+faiss-cpu
+whisper
