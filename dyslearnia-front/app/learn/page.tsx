@@ -10,6 +10,8 @@ import {
   Controls,
   MiniMap,
   Panel,
+  getOutgoers,
+  MarkerType,
   type Node,
   type Edge,
   type OnNodesChange,
@@ -58,10 +60,34 @@ const initialNodes: Node[] = [
 ];
 
 const initialEdges: Edge[] = [
-  { id: "e-input-summarize", source: "input-1", target: "summarize-1" },
-  { id: "e-input-spacing", source: "input-1", target: "spacing-1" },
-  { id: "e-summarize-output", source: "summarize-1", target: "output-1" },
-  { id: "e-spacing-output", source: "spacing-1", target: "output-1" },
+  {
+    id: "e-input-summarize",
+    source: "input-1",
+    target: "summarize-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
+  {
+    id: "e-input-spacing",
+    source: "input-1",
+    target: "spacing-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
+  {
+    id: "e-summarize-output",
+    source: "summarize-1",
+    target: "output-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
+  {
+    id: "e-spacing-output",
+    source: "spacing-1",
+    target: "output-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
 ];
 
 let nodeId = 0;
@@ -85,9 +111,55 @@ function Flow() {
     [],
   );
 
-  const onConnect: OnConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [],
+  // Check if adding an edge would create a cycle
+  const hasCycle = useCallback(
+    (sourceNode: Node, targetNode: Node, existingEdges: Edge[]): boolean => {
+      const visited = new Set<string>();
+
+      const checkCycle = (node: Node): boolean => {
+        if (visited.has(node.id)) return false;
+        visited.add(node.id);
+
+        // If we reach the target node, a cycle would be created
+        if (node.id === targetNode.id) return true;
+
+        const outgoers = getOutgoers(node, nodes, existingEdges);
+        return outgoers.some((outgoer) => checkCycle(outgoer));
+      };
+
+      return checkCycle(sourceNode);
+    },
+    [nodes],
+  );
+
+  const handleConnect = useCallback(
+    (params: Parameters<OnConnect>[0]) => {
+      // Find source and target nodes
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      const targetNode = nodes.find((n) => n.id === params.target);
+
+      if (sourceNode && targetNode) {
+        // Check if adding this edge would create a cycle
+        if (hasCycle(sourceNode, targetNode, edges)) {
+          // Optionally show a warning or prevent the connection
+          console.warn("Adding this edge would create a cycle");
+          return;
+        }
+      }
+
+      // Add edge with arrow marker
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            type: "smoothstep",
+            markerEnd: { type: MarkerType.ArrowClosed },
+          },
+          eds,
+        ),
+      );
+    },
+    [nodes, edges, hasCycle],
   );
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -163,7 +235,7 @@ function Flow() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
+          onConnect={handleConnect}
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
@@ -194,3 +266,4 @@ export default function LearnPage() {
     </ReactFlowProvider>
   );
 }
+
