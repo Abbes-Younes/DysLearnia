@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, type DragEvent } from "react";
+import { useState, useCallback, useMemo, useRef, type DragEvent } from "react";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -10,6 +10,8 @@ import {
   Controls,
   MiniMap,
   Panel,
+  getOutgoers,
+  MarkerType,
   type Node,
   type Edge,
   type OnNodesChange,
@@ -27,7 +29,7 @@ const toolbox = [
   { type: "tts", label: "Text to Speech", icon: "🔊" },
   { type: "spacing", label: "Add Spacing", icon: "↔️" },
   { type: "fontFlip", label: "Flip Font", icon: "🔤" },
-  { type: "output", label: "Output", icon: "✅" },
+  { type: "result", label: "Output", icon: "✅" },
 ] as const;
 
 const initialNodes: Node[] = [
@@ -51,17 +53,41 @@ const initialNodes: Node[] = [
   },
   {
     id: "output-1",
-    type: "output",
+    type: "result",
     position: { x: 250, y: 450 },
     data: { label: "Output" },
   },
 ];
 
 const initialEdges: Edge[] = [
-  { id: "e-input-summarize", source: "input-1", target: "summarize-1" },
-  { id: "e-input-spacing", source: "input-1", target: "spacing-1" },
-  { id: "e-summarize-output", source: "summarize-1", target: "output-1" },
-  { id: "e-spacing-output", source: "spacing-1", target: "output-1" },
+  {
+    id: "e-input-summarize",
+    source: "input-1",
+    target: "summarize-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
+  {
+    id: "e-input-spacing",
+    source: "input-1",
+    target: "spacing-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
+  {
+    id: "e-summarize-output",
+    source: "summarize-1",
+    target: "output-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
+  {
+    id: "e-spacing-output",
+    source: "spacing-1",
+    target: "output-1",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed },
+  },
 ];
 
 let nodeId = 0;
@@ -85,10 +111,82 @@ function Flow() {
     [],
   );
 
-  const onConnect: OnConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [],
+  // Check if adding an edge would create a cycle
+  const hasCycle = useCallback(
+    (sourceNode: Node, targetNode: Node, existingEdges: Edge[]): boolean => {
+      const visited = new Set<string>();
+
+      const checkCycle = (node: Node): boolean => {
+        if (visited.has(node.id)) return false;
+        visited.add(node.id);
+
+        // If we reach the target node, a cycle would be created
+        if (node.id === targetNode.id) return true;
+
+        const outgoers = getOutgoers(node, nodes, existingEdges);
+        return outgoers.some((outgoer) => checkCycle(outgoer));
+      };
+
+      return checkCycle(sourceNode);
+    },
+    [nodes],
   );
+
+  const handleConnect = useCallback(
+    (params: Parameters<OnConnect>[0]) => {
+      // Find source and target nodes
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      const targetNode = nodes.find((n) => n.id === params.target);
+
+      if (sourceNode && targetNode) {
+        // Check if adding this edge would create a cycle
+        if (hasCycle(sourceNode, targetNode, edges)) {
+          // Optionally show a warning or prevent the connection
+          console.warn("Adding this edge would create a cycle");
+          return;
+        }
+      }
+
+      // Add edge with arrow marker
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            type: "smoothstep",
+            markerEnd: { type: MarkerType.ArrowClosed },
+          },
+          eds,
+        ),
+      );
+    },
+    [nodes, edges, hasCycle],
+  );
+
+  // Detect cycles in the entire graph (not DAG-safe)
+  const graphHasCycle = useMemo(() => {
+    const adj = new Map<string, string[]>();
+    for (const node of nodes) adj.set(node.id, []);
+    for (const edge of edges) adj.get(edge.source)?.push(edge.target);
+
+    const visited = new Set<string>();
+    const inStack = new Set<string>();
+
+    const dfs = (id: string): boolean => {
+      visited.add(id);
+      inStack.add(id);
+      for (const neighbor of adj.get(id) ?? []) {
+        if (inStack.has(neighbor)) return true;
+        if (!visited.has(neighbor) && dfs(neighbor)) return true;
+      }
+      inStack.delete(id);
+      return false;
+    };
+
+    for (const node of nodes) {
+      if (!visited.has(node.id) && dfs(node.id)) return true;
+    }
+    return false;
+  }, [nodes, edges]);
 
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
@@ -154,6 +252,20 @@ function Flow() {
             </div>
           ))}
         </div>
+
+        <div className="mt-auto pt-4">
+          {graphHasCycle && (
+            <p className="mb-2 text-xs text-error font-medium">
+              Cycle detected — remove a connection to continue
+            </p>
+          )}
+          <button
+            disabled={graphHasCycle}
+            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Execute Pipeline
+          </button>
+        </div>
       </aside>
 
       {/* Canvas */}
@@ -163,7 +275,7 @@ function Flow() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
+          onConnect={handleConnect}
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
@@ -194,3 +306,4 @@ export default function LearnPage() {
     </ReactFlowProvider>
   );
 }
+
