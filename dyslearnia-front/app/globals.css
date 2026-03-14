@@ -6,18 +6,21 @@
 
 :root {
   /* DysLearnia Brand Colors */
-  --background: #fdf6e3;  
+  --background: #fdf6e3;
   --background-secondary: #f0f4ef;
   --foreground: #2c2c2c;
 
+  /* Text */
   --text-primary: #2c2c2c;
   --text-secondary: #555555;
 
+  /* Interactive & Brand */
   --accent: #4a9b8e;
   --accent-hover: #3d8578;
   --accent-foreground: #ffffff;
   --highlight: #fff9c4;
 
+  /* Gamification & Feedback */
   --gold: #e8a838;
   --success: #4a9b8e;
   --error: #d4806b;
@@ -112,6 +115,8 @@
 }
 
 body {
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-open-dyslexic), sans-serif;
   line-height: 1.8;
   letter-spacing: 0.05em;

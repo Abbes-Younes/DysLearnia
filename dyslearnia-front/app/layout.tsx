@@ -1,21 +1,38 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const geistSans = Geist({
-  variable: "--font-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const openDyslexic = localFont({
+  src: [
+    {
+      path: "../public/fonts/OpenDyslexic-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/OpenDyslexic-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/OpenDyslexic-Italic.woff2",
+      weight: "400",
+      style: "italic",
+    },
+    {
+      path: "../public/fonts/OpenDyslexic-BoldItalic.woff2",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  variable: "--font-open-dyslexic",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "DysLearnia",
-  description: "AI-powered learning assistant for dyslexic students",
+  title: "Dyslearnia",
+  description: "A learning platform designed for students with dyslexia",
 };
 
 export default function RootLayout({
@@ -24,8 +41,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geistSans.variable)}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en">
+      <body className={`${openDyslexic.variable} antialiased`}>
         {children}
       </body>
     </html>
