@@ -6,3 +6,6 @@ coqui-tts
 sentence-transformers
 faiss-cpu
 whisper
+pytesseract
+Pillow
+pdf2image
