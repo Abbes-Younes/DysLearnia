@@ -1,0 +1,1 @@
+# Whisper offline dictation helper
