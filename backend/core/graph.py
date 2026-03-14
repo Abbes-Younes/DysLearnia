@@ -1,6 +1,6 @@
 from functools import partial
 from langgraph.graph import StateGraph, END
-from langchain_community.chat_models import ChatOllama
+from langchain_ollama import ChatOllama
 
 from core.state import CourseState
 from agents.simplifier import simplifier_node
