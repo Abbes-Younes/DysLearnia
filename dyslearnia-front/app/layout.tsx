@@ -1,37 +1,9 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
-const openDyslexic = localFont({
-  src: [
-    {
-      path: "../public/fonts/OpenDyslexic-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/OpenDyslexic-Bold.woff2",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/OpenDyslexic-Italic.woff2",
-      weight: "400",
-      style: "italic",
-    },
-    {
-      path: "../public/fonts/OpenDyslexic-BoldItalic.woff2",
-      weight: "700",
-      style: "italic",
-    },
-  ],
-  variable: "--font-open-dyslexic",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Dyslearnia",
@@ -45,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className={`${openDyslexic.variable} antialiased`}>
+      <body className="antialiased">
         {children}
       </body>
     </html>
