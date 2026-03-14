@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Request
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Form
 
 from api.schemas import (
     SimplifyRequest, SimplifyResponse,
@@ -12,34 +12,82 @@ from utils.pdf import extract_text_from_pdf, chunk_text
 router = APIRouter()
 
 
-# ── PDF Upload ───────────────────────────────────────────────────
+# ── Full pipeline: PDF → OCR → all agents ───────────────────────
 
-@router.post("/upload-pdf", response_model=PDFUploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
+@router.post("/process-pdf")
+async def process_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    reading_level: str = Form("adult"),
+):
     """
-    Upload a PDF. Returns extracted text and pre-chunked segments
-    ready to be passed to any agent endpoint.
+    Full pipeline in one call:
+    Upload PDF → OCR every page → chunk text →
+    run simplifier + quiz on first chunk → return everything
     """
     if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+        raise HTTPException(status_code=400, detail="Only PDF files accepted.")
 
     contents = await file.read()
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+    # Step 1 — OCR every page
     try:
         full_text = extract_text_from_pdf(contents)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Could not parse PDF: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
 
-    if not full_text.strip():
-        raise HTTPException(status_code=422, detail="No text found in PDF. Is it a scanned image?")
-
+    # Step 2 — chunk into 1500-char blocks
     chunks = chunk_text(full_text, max_chars=1500)
-    return PDFUploadResponse(full_text=full_text, chunks=chunks, total_chunks=len(chunks))
+    first_chunk = chunks[0] if chunks else full_text[:1500]
+
+    # Step 3 — run simplifier on first chunk
+    graph = request.app.state.graph
+    simplified_result = graph.invoke({
+        "text": first_chunk,
+        "task": "simplify",
+        "reading_level": reading_level,
+    })
+
+    # Step 4 — run quiz on first chunk
+    quiz_result = graph.invoke({
+        "text": first_chunk,
+        "task": "quiz",
+        "reading_level": reading_level,
+    })
+
+    return {
+        "total_chunks": len(chunks),
+        "chunks": chunks,
+        "current_chunk": 0,
+        "reading_level": reading_level,
+        "simplified_text": simplified_result.get("simplified_text", ""),
+        "quiz": quiz_result.get("quiz", []),
+    }
 
 
-# ── Agent endpoints ──────────────────────────────────────────────
+# ── Individual agent endpoints (still available) ─────────────────
+
+@router.post("/upload-pdf", response_model=PDFUploadResponse)
+async def upload_pdf(file: UploadFile = File(...)):
+    """Upload only — returns raw chunks, no agents called."""
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files accepted.")
+    contents = await file.read()
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    try:
+        full_text = extract_text_from_pdf(contents)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    chunks = chunk_text(full_text, max_chars=1500)
+    return PDFUploadResponse(
+        full_text=full_text,
+        chunks=chunks,
+        total_chunks=len(chunks)
+    )
+
 
 @router.post("/simplify", response_model=SimplifyResponse)
 async def simplify(body: SimplifyRequest, request: Request):
@@ -60,10 +108,11 @@ async def generate_quiz(body: QuizRequest, request: Request):
         "task": "quiz",
         "reading_level": body.reading_level,
     })
-
     if result.get("quiz_error"):
-        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {result['quiz_error']}")
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"LLM returned invalid JSON: {result['quiz_error']}"
+        )
     return QuizResponse(quiz=result["quiz"])
 
 
@@ -93,10 +142,11 @@ async def get_gamification(body: GamificationRequest, request: Request):
             "age_group": body.reading_level,
         },
     })
-
     if result.get("gamification_error"):
-        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {result['gamification_error']}")
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"LLM returned invalid JSON: {result['gamification_error']}"
+        )
     data = result["gamification"]
     return GamificationResponse(
         message=data.get("message", ""),
@@ -105,7 +155,7 @@ async def get_gamification(body: GamificationRequest, request: Request):
     )
 
 
-# ── Health check ─────────────────────────────────────────────────
+# ── Health check ──────────────────────────────────────────────────
 
 @router.get("/health")
 async def health():
