@@ -1,4 +1,4 @@
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from core.state import CourseState
 
 SIMPLIFIER_PROMPT = """
@@ -21,15 +21,19 @@ Your job:
 Output only the rewritten text. No intro sentence, no explanation.
 """.strip()
 
-
 def simplifier_node(state: CourseState, llm) -> dict:
     level = state.get("reading_level", "adult")
-    text = state.get("raw_text", "")
-    print(f"[simplifier] input: {len(text)} chars")
-    messages = [
-        SystemMessage(content=SIMPLIFIER_PROMPT),
-        HumanMessage(content=f"Reading level: {level}\n\nText:\n{text}")
-    ]
-    result = llm.invoke(messages)
-    print(f"[simplifier] done")
-    return {"simplified_text": result.content.strip()}
+    text = state.get("text", "")
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", SIMPLIFIER_PROMPT),
+        ("human", "Reading level: {level}\n\nText:\n{text}")
+    ])
+    
+    chain = prompt | llm
+
+    try:
+        result = chain.invoke({"level": level, "text": text})
+        return {"simplified_text": result.content.strip(), "simplified_text_error": None}
+    except Exception as e:
+        return {"simplified_text": None, "simplified_text_error": str(e)}

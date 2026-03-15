@@ -1,4 +1,4 @@
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from core.state import CourseState
 
 HINT_PROMPT = """
@@ -27,12 +27,20 @@ def hint_node(state: CourseState, llm) -> dict:
     level = state.get("reading_level", "adult")
     text = state.get("simplified_text") or state.get("raw_text", "")
     question = state.get("user_question", "")
-    print(f"[hint] question: {question}")
+    text = state.get("text", "")
+
     if not question:
-        return {"hint": "Please ask a question."}
-    messages = [
-        SystemMessage(content=HINT_PROMPT),
-        HumanMessage(content=f"Reading level: {level}\n\nCourse text:\n{text}\n\nQuestion: {question}")
-    ]
-    result = llm.invoke(messages)
-    return {"hint": result.content.strip()}
+        return {"hint": "Please ask a question about the course material.", "hint_error": None}
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", HINT_PROMPT),
+        ("human", "Reading level: {level}\n\nCourse text:\n{text}\n\nStudent question: {question}")
+    ])
+    
+    chain = prompt | llm
+
+    try:
+        result = chain.invoke({"level": level, "text": text, "question": question})
+        return {"hint": result.content.strip(), "hint_error": None}
+    except Exception as e:
+        return {"hint": None, "hint_error": str(e)}

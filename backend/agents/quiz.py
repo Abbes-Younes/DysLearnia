@@ -1,7 +1,8 @@
-import json
-import re
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from core.state import CourseState
+from api.schemas import QuizQuestion
+from typing import List
+from pydantic import BaseModel, RootModel
 
 QUIZ_PROMPT = """
 You are a quiz generator for dyslexic learners of all ages.
@@ -20,35 +21,24 @@ Rules:
 - No trick questions. No double negatives. No confusing phrasing.
 - If the reading level is "child", use very simple everyday language.
 - Add a short explanation (1 sentence) of why the correct answer is right.
-
-Output ONLY valid JSON — no markdown, no explanation, no extra text:
-[
-  {
-    "question": "...",
-    "options": {"A": "...", "B": "...", "C": "...", "D": "..."},
-    "answer": "A",
-    "explanation": "One sentence explaining why this answer is correct."
-  }
-]
 """.strip()
+
+class QuizOutput(BaseModel):
+    questions: List[QuizQuestion]
 
 def quiz_node(state: CourseState, llm) -> dict:
     level = state.get("reading_level", "adult")
-    # smart input — use simplified if available
-    text = state.get("simplified_text") or state.get("raw_text", "")
-    print(f"[quiz] input: {len(text)} chars")
-    messages = [
-        SystemMessage(content=QUIZ_PROMPT),
-        HumanMessage(content=f"Reading level: {level}\n\nText:\n{text}")
-    ]
-    result = llm.invoke(messages)
-    raw = re.sub(r"```json|```", "", result.content).strip()
+    text = state.get("text", "")
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", QUIZ_PROMPT),
+        ("human", "Reading level: {level}\n\nText:\n{text}")
+    ])
+    
+    chain = prompt | llm.with_structured_output(QuizOutput)
+
     try:
-        return {"quiz": json.loads(raw)}
-    except:
-        match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if match:
-            try:
-                return {"quiz": json.loads(match.group())}
-            except: pass
-        return {"quiz": [], "quiz_error": raw}
+        result = chain.invoke({"level": level, "text": text})
+        return {"quiz": result.questions, "quiz_error": None}
+    except Exception as e:
+        return {"quiz": [], "quiz_error": str(e)}
