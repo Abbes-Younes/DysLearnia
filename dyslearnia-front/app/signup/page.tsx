@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import * as queries from '@/lib/supabase/queries'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -10,22 +11,57 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Check if already authenticated and redirect
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/workflows')
+        return
+      }
+    }
+    checkAuth()
+  }, [router, supabase])
 
   const handleSignup = async () => {
     if (password !== confirm) {
       setError('Passwords do not match')
       return
     }
+    if (!name.trim()) {
+      setError('Please enter your name')
+      return
+    }
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signUp({ email, password })
+    
+    const { error, data } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: {
+          name: name.trim(),
+        }
+      }
+    })
+    
     if (error) {
       setError(error.message)
       setLoading(false)
-    } else {
-      router.push('/dashboard')
+    } else if (data.user) {
+      // Create user in our database
+      try {
+        await queries.createUser(data.user.id, email, name.trim())
+        router.push('/workflows')
+      } catch (e) {
+        console.error('Error creating user:', e)
+        // Continue anyway - user was created in auth
+        router.push('/workflows')
+      }
     }
   }
 
@@ -42,6 +78,16 @@ export default function SignupPage() {
         )}
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
