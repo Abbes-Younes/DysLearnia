@@ -65,7 +65,7 @@ function NodeShell({
           />
         )}
       </div>
-      <span className="text-xs font-medium text-foreground max-w-[80px] text-center leading-tight">
+      <span className="relative z-10 text-xs font-medium text-foreground max-w-[80px] text-center leading-tight">
         {label}
       </span>
     </div>
