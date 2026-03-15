@@ -39,6 +39,7 @@ import {
   type PipelineRunResponse,
 } from "../lib/api";
 import { Loader2, AlertCircle, Download, X } from "lucide-react";
+import { CourseInputModal } from "./course-input-modal";
 
 // ── Placeholder node shown on empty canvas ──────────────────────────────────
 
@@ -130,6 +131,9 @@ function Flow() {
   const [blocks, setBlocks] = useState<BlockDescription[]>([]);
   const [blocksLoading, setBlocksLoading] = useState(true);
   const [blocksError, setBlocksError] = useState<string | null>(null);
+
+  // Course input modal state
+  const [courseInputNodeId, setCourseInputNodeId] = useState<string | null>(null);
 
   // Pipeline execution state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -305,6 +309,38 @@ function Flow() {
     [screenToFlowPosition],
   );
 
+  // Open modal when clicking a course_input node
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.data.blockName === "course_input") {
+        setCourseInputNodeId(node.id);
+      }
+    },
+    [],
+  );
+
+  // Save course input data into the node
+  const onCourseInputSave = useCallback(
+    (nodeId: string, text: string, fileName?: string) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  inputText: text,
+                  inputFileName: fileName,
+                },
+              }
+            : n,
+        ),
+      );
+      setCourseInputNodeId(null);
+    },
+    [],
+  );
+
   const onDragStart = (
     event: DragEvent,
     block: BlockDescription,
@@ -345,16 +381,18 @@ function Flow() {
         initial_inputs: {} as Record<string, Record<string, unknown>>,
       };
 
-      // For course_input nodes without upstream, seed with empty text
-      // (the backend will use doc_id from params or RAG)
+      // Seed source nodes with their stored input text
       for (const n of realNodes) {
         const blockName = n.data.blockName as string;
         const hasIncoming = edges.some((e) => e.target === n.id);
-        if (!hasIncoming && blockName !== "course_input") {
-          // Source nodes without input — seed with placeholder
-          request.initial_inputs[n.id] = {
-            text: n.data.inputText as string || "",
-          };
+        if (!hasIncoming) {
+          const text = (n.data.inputText as string) || "";
+          if (blockName === "course_input" && text) {
+            // Pre-seeded text from upload or paste — skip binary extraction
+            request.initial_inputs[n.id] = { text };
+          } else if (blockName !== "course_input") {
+            request.initial_inputs[n.id] = { text };
+          }
         }
       }
 
@@ -510,6 +548,7 @@ function Flow() {
           onEdgesDelete={onEdgesDelete}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          onNodeClick={onNodeClick}
           deleteKeyCode={["Backspace", "Delete"]}
           nodeTypes={nodeTypes}
           fitView
@@ -531,6 +570,23 @@ function Flow() {
           />
         )}
       </div>
+
+      {/* Course input modal */}
+      {courseInputNodeId && (
+        <CourseInputModal
+          nodeId={courseInputNodeId}
+          initialText={
+            (nodes.find((n) => n.id === courseInputNodeId)?.data
+              .inputText as string) || ""
+          }
+          initialFileName={
+            (nodes.find((n) => n.id === courseInputNodeId)?.data
+              .inputFileName as string) || undefined
+          }
+          onSave={onCourseInputSave}
+          onClose={() => setCourseInputNodeId(null)}
+        />
+      )}
     </div>
   );
 }
