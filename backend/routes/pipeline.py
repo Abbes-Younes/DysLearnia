@@ -10,8 +10,9 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
+from typing import Annotated
 
 router = APIRouter(tags=["Pipeline"])
 
@@ -121,10 +122,172 @@ def _serialise_outputs(outputs: dict) -> dict[str, list[BlockDataOut]]:
 
 # ── REST endpoint ─────────────────────────────────────────────────────────────
 
+# ── Swagger example pipelines ─────────────────────────────────────────────────
+
+_PIPELINE_EXAMPLES = {
+    "simplify_and_format": {
+        "summary": "Simplify → Dyslexia font",
+        "description": (
+            "Pre-seeded text pipeline: simplify with LLM then reformat "
+            "in a dyslexia-friendly font. No file upload needed."
+        ),
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "summarizer"},
+                {"id": "n2", "type": "dyslexia_font"},
+            ],
+            "edges": [{"source": "n1", "target": "n2"}],
+            "params": {
+                "n1": {"ratio": 0.4, "style": "bullet"},
+                "n2": {"font": "OpenDyslexic", "size": "1.2rem"},
+            },
+            "initial_inputs": {
+                "n1": {"text": (
+                    "Photosynthesis is the process by which green plants and some other "
+                    "organisms use sunlight to synthesise foods from carbon dioxide and water. "
+                    "Photosynthesis in plants generally involves the green pigment chlorophyll "
+                    "and generates oxygen as a byproduct."
+                )}
+            },
+        },
+    },
+    "quiz_from_doc": {
+        "summary": "Summarise → Quiz",
+        "description": (
+            "Summarise a pre-indexed document (by doc_id) then generate a quiz. "
+            "Replace doc_id with one returned by POST /api/documents/upload."
+        ),
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "course_input"},
+                {"id": "n2", "type": "summarizer"},
+                {"id": "n3", "type": "quiz_builder"},
+            ],
+            "edges": [
+                {"source": "n1", "target": "n2"},
+                {"source": "n2", "target": "n3"},
+            ],
+            "params": {
+                "n1": {"doc_id": "REPLACE_WITH_YOUR_DOC_ID"},
+                "n2": {"ratio": 0.3, "style": "paragraph"},
+                "n3": {"num_questions": 5, "reading_level": "teen"},
+            },
+            "initial_inputs": {},
+        },
+    },
+    "knowledge_graph_pipeline": {
+        "summary": "Key concepts → Knowledge graph",
+        "description": (
+            "Extract key concepts then build a knowledge graph stored in Neo4j. "
+            "Returns D3-compatible JSON with nodes and links."
+        ),
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "key_concepts"},
+                {"id": "n2", "type": "knowledge_graph"},
+            ],
+            "edges": [{"source": "n1", "target": "n2"}],
+            "params": {
+                "n1": {"max_concepts": 10},
+                "n2": {"depth": 2},
+            },
+            "initial_inputs": {
+                "n1": {"text": (
+                    "The mitochondria produce ATP through cellular respiration. "
+                    "The nucleus stores DNA which is transcribed to mRNA, then translated "
+                    "into proteins by ribosomes. The cell membrane controls what enters and "
+                    "exits via active and passive transport."
+                )}
+            },
+        },
+    },
+    "audio_lesson": {
+        "summary": "Summarise → TTS → MP3",
+        "description": (
+            "Summarise text, convert to speech, and package as an MP3 audio lesson. "
+            "Download the binary via GET /api/pipeline/{run_id}/output/{node_id}."
+        ),
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "summarizer"},
+                {"id": "n2", "type": "tts"},
+                {"id": "n3", "type": "audio_unifier"},
+            ],
+            "edges": [
+                {"source": "n1", "target": "n2"},
+                {"source": "n2", "target": "n3"},
+            ],
+            "params": {
+                "n1": {"ratio": 0.5, "style": "paragraph"},
+                "n2": {"voice": "default", "speed": 1.0},
+                "n3": {"format": "mp3", "bitrate": 128},
+            },
+            "initial_inputs": {
+                "n1": {"text": (
+                    "The water cycle describes how water evaporates from the surface "
+                    "of the earth, rises into the atmosphere, cools and condenses into "
+                    "rain or snow, and falls again to the surface as precipitation."
+                )}
+            },
+        },
+    },
+    "flashcard_deck": {
+        "summary": "Key concepts → Flashcards",
+        "description": "Extract key concepts and generate a Anki-style flashcard deck.",
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "key_concepts"},
+                {"id": "n2", "type": "flashcards"},
+            ],
+            "edges": [{"source": "n1", "target": "n2"}],
+            "params": {
+                "n1": {"max_concepts": 8},
+                "n2": {"format": "qa", "reading_level": "teen"},
+            },
+            "initial_inputs": {
+                "n1": {"text": (
+                    "Newton's first law states that an object at rest stays at rest and an "
+                    "object in motion stays in motion unless acted upon by an external force. "
+                    "Newton's second law relates force, mass, and acceleration: F = ma. "
+                    "Newton's third law states that for every action there is an equal and "
+                    "opposite reaction."
+                )}
+            },
+        },
+    },
+    "validate_only": {
+        "summary": "Validate pipeline (dry run)",
+        "description": (
+            "Set validate_only=true to check the pipeline for type incompatibilities "
+            "and cycles without executing any blocks."
+        ),
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "summarizer"},
+                {"id": "n2", "type": "quiz_builder"},
+            ],
+            "edges": [{"source": "n1", "target": "n2"}],
+            "params": {},
+            "initial_inputs": {},
+            "validate_only": True,
+        },
+    },
+}
+
+
 @router.post(
     "/pipeline/run",
     response_model=PipelineRunResponse,
     summary="Execute a pipeline synchronously",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "examples": _PIPELINE_EXAMPLES,
+                }
+            }
+        }
+    },
 )
 async def run_pipeline(body: PipelineRunRequest):
     """

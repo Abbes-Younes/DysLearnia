@@ -29,7 +29,8 @@ class DocumentUploadResponse(BaseModel):
     mime_type: str
     page_count: int
     chunk_count: int
-    preview_text: str  # first 500 chars of extracted text
+    preview_text: str  # first 500 chars — for UI display
+    full_text: str     # full extracted text — paste into pipeline initial_inputs
 
 
 @router.post(
@@ -100,7 +101,7 @@ async def upload_document(
     doc_id = bd.metadata.get("doc_id", str(uuid.uuid4()))
     page_count = bd.metadata.get("page_count", 0)
     chunk_count = bd.metadata.get("chunk_count", 0)
-    preview_text = (bd.text or "")[:500]
+    full_text = bd.text or ""
 
     return DocumentUploadResponse(
         doc_id=doc_id,
@@ -108,5 +109,6 @@ async def upload_document(
         mime_type=mime,
         page_count=page_count,
         chunk_count=chunk_count,
-        preview_text=preview_text,
+        preview_text=full_text[:500],
+        full_text=full_text,
     )

@@ -1,8 +1,9 @@
 """
-models/local_llm.py — Shared LangChain-Ollama LLM singleton.
+models/local_llm.py — Shared LLM singleton.
 
-All blocks call get_llm() to access the shared model instance.
-init_llm() is called once on app startup with the configured URL/model.
+Backends (controlled by LLM_BACKEND env var, default "gemini"):
+  - "gemini"  — Google Gemini via langchain-google-genai  ← active for testing
+  - "ollama"  — local Ollama (commented out below)
 """
 from __future__ import annotations
 
@@ -17,14 +18,31 @@ def init_llm(base_url: str | None = None, model_name: str | None = None):
     Called by the FastAPI lifespan on startup.
     """
     global _llm
-    from langchain_ollama import ChatOllama
+    backend = os.getenv("LLM_BACKEND", "gemini").lower()
 
-    _llm = ChatOllama(
-        base_url=base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        model=model_name or os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
-        temperature=0.3,
-        num_predict=1024,
-    )
+    if backend == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        _llm = ChatGoogleGenerativeAI(
+            model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+            google_api_key=os.getenv("GEMINI_API_KEY"),
+            temperature=0.3,
+            max_output_tokens=1024,
+        )
+
+    # ── Ollama (local) — uncomment to switch back ──────────────────────────
+    # elif backend == "ollama":
+    #     from langchain_ollama import ChatOllama
+    #     _llm = ChatOllama(
+    #         base_url=base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+    #         model=model_name or os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
+    #         temperature=0.3,
+    #         num_predict=1024,
+    #     )
+    # ──────────────────────────────────────────────────────────────────────
+
+    else:
+        raise ValueError(f"Unknown LLM_BACKEND={backend!r}. Use 'gemini' or 'ollama'.")
+
     return _llm
 
 
