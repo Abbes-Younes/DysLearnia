@@ -40,6 +40,7 @@ import {
 } from "../lib/api";
 import { Loader2, AlertCircle, Download, X } from "lucide-react";
 import { CourseInputModal } from "./course-input-modal";
+import { useApp } from "@/lib/context/app-context";
 
 // ── Placeholder node shown on empty canvas ──────────────────────────────────
 
