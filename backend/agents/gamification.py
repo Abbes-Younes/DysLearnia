@@ -1,7 +1,7 @@
 import json
-import re
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from core.state import CourseState
+from api.schemas import GamificationResponse
 
 GAMIFICATION_PROMPT = """
 You are an encouraging coach for dyslexic learners of all ages.
@@ -19,13 +19,6 @@ Generate:
                      adult → respectful, matter-of-fact positivity.
 2. badge           — A fun 2-3 word badge name they just earned, relevant to score or streak.
 3. next_challenge  — 1 short actionable suggestion for what to do next.
-
-Output ONLY valid JSON — no markdown, no explanation, no extra text:
-{
-  "message": "...",
-  "badge": "...",
-  "next_challenge": "..."
-}
 """.strip()
 
 
@@ -38,24 +31,15 @@ def gamification_node(state: CourseState, llm) -> dict:
         "age_group": state.get("reading_level", "adult")
     }
 
-    messages = [
-        SystemMessage(content=GAMIFICATION_PROMPT),
-        HumanMessage(content=f"Student progress:\n{json.dumps(progress)}")
-    ]
-
-    result = llm.invoke(messages)
-    raw = result.content.strip()
-    raw = re.sub(r"```json|```", "", raw).strip()
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", GAMIFICATION_PROMPT),
+        ("human", "Student progress:\n{progress}")
+    ])
+    
+    chain = prompt | llm.with_structured_output(GamificationResponse)
 
     try:
-        parsed = json.loads(raw)
-        return {"gamification": parsed}
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if match:
-            try:
-                parsed = json.loads(match.group())
-                return {"gamification": parsed}
-            except Exception:
-                pass
-        return {"gamification": {}, "gamification_error": raw}
+        result = chain.invoke({"progress": json.dumps(progress)})
+        return {"gamification": result, "gamification_error": None}
+    except Exception as e:
+        return {"gamification": None, "gamification_error": str(e)}

@@ -1,11 +1,5 @@
 # DysLearnia — Master Project Prompt
 
-> SMU Hackathon 5th Edition · Theme: Education in the Era of Artificial Intelligence  
-> Version: 2.0 · Status: Baseline Specification  
-> Changes from v1.0: Generic course input block (PDF+PPTX+Video); Qdrant Cloud replaces local ChromaDB; collaboration section rewritten with correct Hocuspocus tooling; output unifier blocks added (PDF, PPTX, Video, Audio)
-
----
-
 ## 1. Project Identity
 
 **Name:** DysLearnia  
@@ -34,7 +28,7 @@ DysLearnia is not a chatbot. It is a **visual content transformation engine** wh
 | AI Integration & Educational Value | 15%    | Every block is an AI task; AI compounds across the pipeline                                              |
 | System Architecture                | 10%    | Modular IBlock interface, registry pattern, topological runner — each component has one responsibility   |
 | Reliability & Grounded Responses   | 10%    | Qdrant Cloud RAG on every LLM block; `source_chunks` surfaced as citations; hallucination hedge detector |
-| Model Compliance                   | 5%     | Qwen2.5-3B via Ollama — fully local, 3B < 5B limit, zero external API calls                              |
+| Model Compliance                   | 5%     | Qwen3.5-4B via Ollama — fully local, 3B < 5B limit, zero external API calls                              |
 | Usability & Learning Experience    | 10%    | Drag-and-drop canvas, voice builder, preset templates, real-time collaboration                           |
 | Presentation & Demo                | 15%    | Three live pipelines in 90 seconds: dyslexia → knowledge graph → exam prep                               |
 
@@ -47,7 +41,7 @@ DysLearnia is not a chatbot. It is a **visual content transformation engine** wh
 │  Next.js 14 Frontend (App Router)                       │
 │  React Flow canvas · Zustand + Yjs · Voice input        │
 └────────────────┬───────────────────────────────┬────────┘
-                 │ REST + WebSocket               │ WS room
+                 │ REST + WebSocket              │ WS room
                  ▼                               ▼
 ┌───────────────────────┐           ┌────────────────────┐
 │  FastAPI Backend      │           │  Hocuspocus server │
@@ -59,8 +53,8 @@ DysLearnia is not a chatbot. It is a **visual content transformation engine** wh
        ▼      ▼
 ┌──────────┐ ┌──────────────────────────────────────────────────┐
 │  Ollama  │ │  Block runners                                   │
-│  Qwen2.5 │ │  LLM · Whisper · Kokoro TTS · D3 · MoviePy      │
-│  :11434  │ │  python-pptx · WeasyPrint · python-pptx (input) │
+│  Qwen2.5 │ │  LLM · Whisper · Kokoro TTS · D3 · MoviePy       │
+│  :11434  │ │  python-pptx · WeasyPrint · python-pptx (input)  │
 └──────────┘ └──────────────────────────────────────────────────┘
        │
        ▼
@@ -1067,7 +1061,7 @@ Browser MediaRecorder (2s chunks, WAV)
   → WS /ws/speech/stream
   → faster-whisper "tiny" model (local, 39MB)
   → Transcript text
-  → Qwen2.5-3B intent parser (strict JSON output)
+  → Qwen3.5-4B intent parser (strict JSON output)
   → Canvas action dispatcher (frontend)
   → Web Speech API confirmation (browser TTS)
 ```
@@ -1363,7 +1357,7 @@ Open a second browser window as "Dr. Hamza (Teacher)" → join the student's pip
 
 | Decision                         | Alternative considered                                | Why this choice                                                                                                                                            |
 | -------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Qwen2.5-3B via Ollama            | Llama 3.2-3B, Phi-3-mini                              | Qwen2.5 is strongest multilingual instruct model under 5B; Arabic support matters for SMU context                                                          |
+| Qwen3.5-4B via Ollama            | Llama 3.2-3B, Phi-3-mini                              | Qwen2.5 is strongest multilingual instruct model under 5B; Arabic support matters for SMU context                                                          |
 | React Flow (@xyflow/react)       | Custom SVG canvas, D3 force                           | React Flow is production-proven, used by n8n itself; built-in node/edge types, zoom, minimap                                                               |
 | Hocuspocus over raw y-websocket  | y-websocket server, PartyKit                          | Hocuspocus adds auth hooks, Database extension, and per-document access control out of the box; y-websocket requires all of this to be built manually      |
 | Yjs CRDT                         | Firebase Realtime, Supabase Realtime for canvas state | Yjs is correct by construction — no central merge logic, offline-first; Supabase Realtime is used only for comments (which need persistence, not CRDT)     |

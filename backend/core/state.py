@@ -1,7 +1,7 @@
 from typing import TypedDict, Optional, List
+from api.schemas import QuizQuestion, GamificationResponse
 
-
-class CourseState(TypedDict):
+class CourseState(TypedDict, total=False):
     # Input
     text: str                        # Extracted PDF text chunk
     task: str                        # "simplify" | "quiz" | "hint" | "gamify"
@@ -11,8 +11,10 @@ class CourseState(TypedDict):
 
     # Outputs (only one will be populated per run)
     simplified_text: Optional[str]
-    quiz: Optional[List[dict]]
+    simplified_text_error: Optional[str]
+    quiz: Optional[List[QuizQuestion]]
     quiz_error: Optional[str]
     hint: Optional[str]
-    gamification: Optional[dict]
+    hint_error: Optional[str]
+    gamification: Optional[GamificationResponse]
     gamification_error: Optional[str]

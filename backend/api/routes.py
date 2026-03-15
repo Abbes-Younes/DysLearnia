@@ -49,6 +49,10 @@ async def simplify(body: SimplifyRequest, request: Request):
         "task": "simplify",
         "reading_level": body.reading_level,
     })
+    
+    if result.get("simplified_text_error"):
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid output: {result['simplified_text_error']}")
+
     return SimplifyResponse(simplified_text=result["simplified_text"])
 
 
@@ -62,7 +66,7 @@ async def generate_quiz(body: QuizRequest, request: Request):
     })
 
     if result.get("quiz_error"):
-        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {result['quiz_error']}")
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid output: {result['quiz_error']}")
 
     return QuizResponse(quiz=result["quiz"])
 
@@ -76,6 +80,10 @@ async def get_hint(body: HintRequest, request: Request):
         "reading_level": body.reading_level,
         "user_question": body.user_question,
     })
+
+    if result.get("hint_error"):
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid output: {result['hint_error']}")
+
     return HintResponse(hint=result["hint"])
 
 
@@ -95,13 +103,13 @@ async def get_gamification(body: GamificationRequest, request: Request):
     })
 
     if result.get("gamification_error"):
-        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {result['gamification_error']}")
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid output: {result['gamification_error']}")
 
-    data = result["gamification"]
+    gamification = result["gamification"]
     return GamificationResponse(
-        message=data.get("message", ""),
-        badge=data.get("badge", ""),
-        next_challenge=data.get("next_challenge", ""),
+        message=gamification.message,
+        badge=gamification.badge,
+        next_challenge=gamification.next_challenge,
     )
 
 
