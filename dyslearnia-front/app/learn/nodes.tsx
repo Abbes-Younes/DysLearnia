@@ -124,7 +124,7 @@ function NodeShell({
           />
         )}
         <button
-          onClick={() => deleteElements({ nodes: [{ id }] })}
+          onClick={(e) => { e.stopPropagation(); deleteElements({ nodes: [{ id }] }); }}
           className="absolute -top-2 -right-2 z-10 hidden h-5 w-5 items-center justify-center rounded-full bg-error text-white shadow-md transition-transform hover:scale-110 group-hover/node:flex"
         >
           <Trash2 size={10} />
