@@ -27,7 +27,6 @@ class QuizOutput(BaseModel):
     questions: List[QuizQuestion]
 
 def quiz_node(state: CourseState, llm) -> dict:
-    """Generate 3 multiple-choice questions from course text."""
     level = state.get("reading_level", "adult")
     text = state.get("text", "")
 

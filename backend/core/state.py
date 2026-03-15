@@ -18,3 +18,7 @@ class CourseState(TypedDict, total=False):
     hint_error: Optional[str]
     gamification: Optional[GamificationResponse]
     gamification_error: Optional[str]
+
+    # --- pipeline metadata ---
+    agents_run: Optional[List[str]]  # tracks which agents have run
+    progress: Optional[dict]         # for gamification input

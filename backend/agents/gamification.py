@@ -21,12 +21,11 @@ Generate:
 3. next_challenge  — 1 short actionable suggestion for what to do next.
 """.strip()
 
-
 def gamification_node(state: CourseState, llm) -> dict:
-    """Generate badge, message, and next challenge based on student progress."""
+    quiz = state.get("quiz") or []
     progress = state.get("progress") or {
         "score": 0,
-        "total": 0,
+        "total": len(quiz),
         "streak": 1,
         "age_group": state.get("reading_level", "adult")
     }

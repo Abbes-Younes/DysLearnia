@@ -1,0 +1,5 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    67    0     0  100    67      0     55  0:00:01  0:00:01 --:--:--    55100    67    0     0  100    67      0     30  0:00:02  0:00:02 --:--:--    30100   272  100   205  100    67     63     20  0:00:03  0:00:03 --:--:--    84100   272  100   205  100    67     63     20  0:00:03  0:00:03 --:--:--    84{"simplified_text":"The program uses things like boxes.  Each box has parts.  These parts make the program work.  It’s a way to build things.  It helps us make things better.  It’s good for learning."}
+200
+
