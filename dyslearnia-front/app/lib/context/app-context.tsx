@@ -224,7 +224,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const dbWorkflows = await queries.getWorkflows(session.user.id);
           setWorkflows(dbWorkflows.map(dbWorkflowToWorkflow));
         } catch (error) {
-          console.error("Error fetching user:", error);
+          // User may not exist yet (e.g. first login) — silently ignore
         }
       } else {
         setUser(null);
