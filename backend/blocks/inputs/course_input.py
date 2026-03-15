@@ -23,6 +23,12 @@ class CourseInputBlock(IBlock, RAGMixin):
         output_types=["text"],
         parameters=[
             {
+                "name": "doc_id",
+                "type": "text",
+                "default": "",
+                "label": "Document ID — reload from Qdrant instead of uploading a file",
+            },
+            {
                 "name": "language",
                 "type": "select",
                 "options": ["auto", "en", "fr", "ar"],
@@ -40,12 +46,42 @@ class CourseInputBlock(IBlock, RAGMixin):
 
     async def execute(self, inputs: list[BlockData], params: dict) -> list[BlockData]:
         """
-        Inputs[0] must carry binary=<file bytes> and mime_type=<MIME>.
-        If no inputs are provided (re-used from params), look for
-        params["doc_id"] to reload from Qdrant.
+        Two execution modes:
+          1. doc_id mode  — params["doc_id"] set, no binary input.
+                            Reloads all chunks from Qdrant in order.
+          2. binary mode  — inputs[0].binary is the raw file bytes (PDF/PPTX/video).
+                            Extracts text and indexes into Qdrant.
         """
-        if not inputs:
-            return [BlockData(text="", metadata={"error": "No file input provided"})]
+        doc_id_param = params.get("doc_id", "").strip()
+        no_binary = not inputs or not inputs[0].binary
+
+        # ── doc_id reload path ────────────────────────────────────────────────
+        if no_binary and doc_id_param:
+            from db.qdrant import get_all_chunks
+            chunks = get_all_chunks(doc_id_param)
+            if not chunks:
+                return [BlockData(text="", metadata={
+                    "error": f"No chunks found for doc_id {doc_id_param!r}. "
+                             "Upload the document first or check Qdrant connectivity.",
+                    "doc_id": doc_id_param,
+                })]
+            return [BlockData(
+                text="\n\n".join(chunks),
+                mime_type="text/plain",
+                metadata={
+                    "doc_id": doc_id_param,
+                    "user_id": "anonymous",
+                    "chunk_count": len(chunks),
+                    "page_count": 0,
+                    "slide_images": [],
+                },
+            )]
+
+        # ── binary extraction path ────────────────────────────────────────────
+        if no_binary:
+            return [BlockData(text="", metadata={
+                "error": "Provide either a file (binary input) or a doc_id param."
+            })]
 
         bd = inputs[0]
         file_bytes = bd.binary
@@ -53,9 +89,6 @@ class CourseInputBlock(IBlock, RAGMixin):
         user_id = bd.metadata.get("user_id", "anonymous")
         lang = params.get("language", "auto")
         extract_images = params.get("extract_images", True)
-
-        if not file_bytes:
-            return [BlockData(text="", metadata={"error": "No binary data in input"})]
 
         if mime == "application/pdf" or mime == "binary/pdf":
             text, images = self._extract_pdf(file_bytes, extract_images)

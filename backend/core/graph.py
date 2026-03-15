@@ -1,6 +1,5 @@
 from functools import partial
 from langgraph.graph import StateGraph, END
-from langchain_ollama import ChatOllama
 
 from core.state import CourseState
 from agents.simplifier import simplifier_node
@@ -9,19 +8,15 @@ from agents.hint import hint_node
 from agents.gamification import gamification_node
 
 
-def build_graph(ollama_base_url: str, model_name: str) -> object:
+def build_graph(*_args, **_kwargs) -> object:
     """
     Build and compile the LangGraph agent graph.
-    Returns a compiled app you can call with .invoke(state).
+    Uses the shared LLM singleton (get_llm()) so the backend
+    selected via LLM_BACKEND env var applies here too.
     """
-    llm = ChatOllama(
-        base_url=ollama_base_url,
-        model=model_name,
-        temperature=0.3,         # Low temp = consistent, structured output
-        num_predict=1024,        # Max tokens per response
-    )
+    from models.local_llm import get_llm
+    llm = get_llm()
 
-    # Bind llm into each node using partial so the graph API stays clean
     def _simplifier(state):
         return simplifier_node(state, llm)
 
@@ -35,11 +30,11 @@ def build_graph(ollama_base_url: str, model_name: str) -> object:
         return gamification_node(state, llm)
 
     def _router(state):
-      task = state.get("task", "")
-      valid = {"simplify", "quiz", "hint", "gamify"}
-      if task not in valid:
-        raise ValueError(f"Unknown task '{task}'. Must be one of {valid}")
-      return task
+        task = state.get("task", "")
+        valid = {"simplify", "quiz", "hint", "gamify"}
+        if task not in valid:
+            raise ValueError(f"Unknown task '{task}'. Must be one of {valid}")
+        return task
 
     graph = StateGraph(CourseState)
 

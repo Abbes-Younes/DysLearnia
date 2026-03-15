@@ -40,6 +40,11 @@ class PipelineRunner:
         self.nodes = {n["id"]: n for n in nodes}
         self.edges = edges
         self.run_data: dict[str, list[BlockData]] = {}
+        # Pre-supplied inputs for source nodes (e.g. uploaded file bytes).
+        # Checked in _collect_inputs when a node has no incoming edges.
+        # Unlike run_data seeding, these are passed INTO block.execute() so
+        # the block still runs (e.g. CourseInputBlock extracts text from binary).
+        self.source_inputs: dict[str, list[BlockData]] = {}
 
     # ── Topological sort (Kahn's algorithm) ──────────────────────────────────
 
@@ -84,12 +89,17 @@ class PipelineRunner:
     # ── Input collection ──────────────────────────────────────────────────────
 
     def _collect_inputs(self, node_id: str) -> list[BlockData]:
-        """Gather all BlockData outputs from all upstream (source) nodes."""
+        """
+        Gather all BlockData for a node's execute() call.
+        For source nodes (no incoming edges), check source_inputs.
+        """
         inputs: list[BlockData] = []
         for edge in self.edges:
             if edge["target"] == node_id:
                 upstream_outputs = self.run_data.get(edge["source"], [])
                 inputs.extend(upstream_outputs)
+        if not inputs and node_id in self.source_inputs:
+            inputs = self.source_inputs[node_id]
         return inputs
 
     # ── Terminal output nodes ────────────────────────────────────────────────

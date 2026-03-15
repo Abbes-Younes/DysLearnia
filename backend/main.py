@@ -15,18 +15,15 @@ logging.basicConfig(level=logging.DEBUG)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialise shared services once on startup."""
-    ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+    # ── LLM singleton (backend selected via LLM_BACKEND env var) ──────────
+    from models.local_llm import init_llm, get_llm
+    init_llm()
+    llm = get_llm()
+    print(f"[startup] LLM initialised: {type(llm).__name__}")
 
     # ── Legacy LangGraph (existing endpoints) ──────────────────────────────
-    print(f"[startup] Connecting to Ollama at {ollama_url} using model {model_name}")
-    app.state.graph = build_graph(ollama_url, model_name)
+    app.state.graph = build_graph()
     print("[startup] LangGraph compiled.")
-
-    # ── Shared LLM singleton for IBlock system ─────────────────────────────
-    from models.local_llm import init_llm
-    init_llm(ollama_url, model_name)
-    print("[startup] LLM singleton initialised.")
 
     # ── Auto-register all IBlocks ──────────────────────────────────────────
     import blocks  # noqa: F401 — triggers __init__.py which imports all blocks

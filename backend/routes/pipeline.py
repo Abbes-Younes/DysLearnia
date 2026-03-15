@@ -10,8 +10,8 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, Field, ValidationError
 from typing import Annotated
 
 router = APIRouter(tags=["Pipeline"])
@@ -124,38 +124,49 @@ def _serialise_outputs(outputs: dict) -> dict[str, list[BlockDataOut]]:
 
 # ── Swagger example pipelines ─────────────────────────────────────────────────
 
+_TEXT_SEED = (
+    "Photosynthesis is the process by which green plants use sunlight to synthesise "
+    "food from carbon dioxide and water. The chlorophyll pigment captures light energy "
+    "and generates oxygen as a byproduct. This process drives almost all life on Earth."
+)
+
+_NEWTON_TEXT = (
+    "Newton's first law: an object at rest stays at rest unless acted on by an external force. "
+    "Newton's second law: F = ma — force equals mass times acceleration. "
+    "Newton's third law: for every action there is an equal and opposite reaction."
+)
+
 _PIPELINE_EXAMPLES = {
     "simplify_and_format": {
-        "summary": "Simplify → Dyslexia font",
+        "summary": "Summarise → Dyslexia font",
         "description": (
-            "Pre-seeded text pipeline: simplify with LLM then reformat "
-            "in a dyslexia-friendly font. No file upload needed."
+            "Seed a course_input node with text, summarise it, then render "
+            "as dyslexia-friendly HTML. No file upload needed."
         ),
         "value": {
             "nodes": [
-                {"id": "n1", "type": "summarizer"},
-                {"id": "n2", "type": "dyslexia_font"},
+                {"id": "n1", "type": "course_input"},
+                {"id": "n2", "type": "summarizer"},
+                {"id": "n3", "type": "dyslexia_font"},
             ],
-            "edges": [{"source": "n1", "target": "n2"}],
+            "edges": [
+                {"source": "n1", "target": "n2"},
+                {"source": "n2", "target": "n3"},
+            ],
             "params": {
-                "n1": {"ratio": 0.4, "style": "bullet"},
-                "n2": {"font": "OpenDyslexic", "size": "1.2rem"},
+                "n2": {"ratio": 0.4, "style": "bullets"},
+                "n3": {"font": "OpenDyslexic"},
             },
             "initial_inputs": {
-                "n1": {"text": (
-                    "Photosynthesis is the process by which green plants and some other "
-                    "organisms use sunlight to synthesise foods from carbon dioxide and water. "
-                    "Photosynthesis in plants generally involves the green pigment chlorophyll "
-                    "and generates oxygen as a byproduct."
-                )}
+                "n1": {"text": _TEXT_SEED}
             },
         },
     },
-    "quiz_from_doc": {
-        "summary": "Summarise → Quiz",
+    "quiz_from_text": {
+        "summary": "Text → Summarise → Quiz",
         "description": (
-            "Summarise a pre-indexed document (by doc_id) then generate a quiz. "
-            "Replace doc_id with one returned by POST /api/documents/upload."
+            "Seed text directly, summarise it, then generate a quiz. "
+            "To load from an uploaded document use params.n1.doc_id instead of initial_inputs."
         ),
         "value": {
             "nodes": [
@@ -168,28 +179,52 @@ _PIPELINE_EXAMPLES = {
                 {"source": "n2", "target": "n3"},
             ],
             "params": {
-                "n1": {"doc_id": "REPLACE_WITH_YOUR_DOC_ID"},
                 "n2": {"ratio": 0.3, "style": "paragraph"},
-                "n3": {"num_questions": 5, "reading_level": "teen"},
+                "n3": {"count": 3, "reading_level": "teen"},
+            },
+            "initial_inputs": {
+                "n1": {"text": _TEXT_SEED}
+            },
+        },
+    },
+    "quiz_from_doc": {
+        "summary": "Load doc from Qdrant → Quiz",
+        "description": (
+            "Load a previously-uploaded document by doc_id from Qdrant, then build a quiz. "
+            "Replace doc_id with the value returned by POST /api/documents/upload."
+        ),
+        "value": {
+            "nodes": [
+                {"id": "n1", "type": "course_input"},
+                {"id": "n2", "type": "quiz_builder"},
+            ],
+            "edges": [{"source": "n1", "target": "n2"}],
+            "params": {
+                "n1": {"doc_id": "REPLACE_WITH_YOUR_DOC_ID"},
+                "n2": {"count": 3, "reading_level": "teen"},
             },
             "initial_inputs": {},
         },
     },
     "knowledge_graph_pipeline": {
-        "summary": "Key concepts → Knowledge graph",
+        "summary": "Text → Key concepts → Knowledge graph",
         "description": (
-            "Extract key concepts then build a knowledge graph stored in Neo4j. "
+            "Extract key concepts then build a knowledge graph. "
             "Returns D3-compatible JSON with nodes and links."
         ),
         "value": {
             "nodes": [
-                {"id": "n1", "type": "key_concepts"},
-                {"id": "n2", "type": "knowledge_graph"},
+                {"id": "n1", "type": "course_input"},
+                {"id": "n2", "type": "key_concepts"},
+                {"id": "n3", "type": "knowledge_graph"},
             ],
-            "edges": [{"source": "n1", "target": "n2"}],
+            "edges": [
+                {"source": "n1", "target": "n2"},
+                {"source": "n2", "target": "n3"},
+            ],
             "params": {
-                "n1": {"max_concepts": 10},
-                "n2": {"depth": 2},
+                "n2": {"max_concepts": 8},
+                "n3": {"depth": 1},
             },
             "initial_inputs": {
                 "n1": {"text": (
@@ -201,57 +236,20 @@ _PIPELINE_EXAMPLES = {
             },
         },
     },
-    "audio_lesson": {
-        "summary": "Summarise → TTS → MP3",
-        "description": (
-            "Summarise text, convert to speech, and package as an MP3 audio lesson. "
-            "Download the binary via GET /api/pipeline/{run_id}/output/{node_id}."
-        ),
-        "value": {
-            "nodes": [
-                {"id": "n1", "type": "summarizer"},
-                {"id": "n2", "type": "tts"},
-                {"id": "n3", "type": "audio_unifier"},
-            ],
-            "edges": [
-                {"source": "n1", "target": "n2"},
-                {"source": "n2", "target": "n3"},
-            ],
-            "params": {
-                "n1": {"ratio": 0.5, "style": "paragraph"},
-                "n2": {"voice": "default", "speed": 1.0},
-                "n3": {"format": "mp3", "bitrate": 128},
-            },
-            "initial_inputs": {
-                "n1": {"text": (
-                    "The water cycle describes how water evaporates from the surface "
-                    "of the earth, rises into the atmosphere, cools and condenses into "
-                    "rain or snow, and falls again to the surface as precipitation."
-                )}
-            },
-        },
-    },
     "flashcard_deck": {
-        "summary": "Key concepts → Flashcards",
-        "description": "Extract key concepts and generate a Anki-style flashcard deck.",
+        "summary": "Text → Flashcards",
+        "description": "Seed text and generate an Anki-style flashcard deck.",
         "value": {
             "nodes": [
-                {"id": "n1", "type": "key_concepts"},
+                {"id": "n1", "type": "course_input"},
                 {"id": "n2", "type": "flashcards"},
             ],
             "edges": [{"source": "n1", "target": "n2"}],
             "params": {
-                "n1": {"max_concepts": 8},
                 "n2": {"format": "qa", "reading_level": "teen"},
             },
             "initial_inputs": {
-                "n1": {"text": (
-                    "Newton's first law states that an object at rest stays at rest and an "
-                    "object in motion stays in motion unless acted upon by an external force. "
-                    "Newton's second law relates force, mass, and acceleration: F = ma. "
-                    "Newton's third law states that for every action there is an equal and "
-                    "opposite reaction."
-                )}
+                "n1": {"text": _NEWTON_TEXT}
             },
         },
     },
@@ -263,10 +261,14 @@ _PIPELINE_EXAMPLES = {
         ),
         "value": {
             "nodes": [
-                {"id": "n1", "type": "summarizer"},
-                {"id": "n2", "type": "quiz_builder"},
+                {"id": "n1", "type": "course_input"},
+                {"id": "n2", "type": "summarizer"},
+                {"id": "n3", "type": "quiz_builder"},
             ],
-            "edges": [{"source": "n1", "target": "n2"}],
+            "edges": [
+                {"source": "n1", "target": "n2"},
+                {"source": "n2", "target": "n3"},
+            ],
             "params": {},
             "initial_inputs": {},
             "validate_only": True,
@@ -342,6 +344,108 @@ async def run_pipeline(body: PipelineRunRequest):
 
 # Simple in-process binary store (replaced by Supabase Storage in production)
 _binary_store: dict[str, dict[str, list]] = {}
+
+
+# ── File + pipeline in one shot ───────────────────────────────────────────────
+
+@router.post(
+    "/pipeline/run/file",
+    response_model=PipelineRunResponse,
+    summary="Upload a file and run a pipeline in one request",
+    description=(
+        "Multipart endpoint — upload a PDF/PPTX/video **and** a pipeline definition "
+        "in a single request. The file is automatically routed to all `course_input` "
+        "source nodes; no separate upload step or manual `initial_inputs` required.\n\n"
+        "**`pipeline` field** — JSON string with the same shape as `POST /api/pipeline/run`:\n"
+        "```json\n"
+        '{"nodes":[{"id":"n1","type":"course_input"},{"id":"n2","type":"quiz_builder"}],'
+        '"edges":[{"source":"n1","target":"n2"}],'
+        '"params":{"n2":{"count":5}}}\n'
+        "```"
+    ),
+)
+async def run_pipeline_with_file(
+    file: UploadFile = File(..., description="PDF, PPTX, or video file"),
+    pipeline: str = Form(..., description="Pipeline definition as a JSON string"),
+):
+    from blocks.base import BlockData
+    from engine.runner import PipelineRunner
+    from engine.validator import validate_pipeline
+
+    # Parse the pipeline JSON form field
+    try:
+        body = PipelineRunRequest(**json.loads(pipeline))
+    except (json.JSONDecodeError, ValidationError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid pipeline JSON: {exc}")
+
+    # Read and validate the file
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    # Infer MIME type from content_type or extension
+    mime = file.content_type or "application/octet-stream"
+    filename_lower = (file.filename or "").lower()
+    if not mime or mime == "application/octet-stream":
+        if filename_lower.endswith(".pdf"):
+            mime = "application/pdf"
+        elif filename_lower.endswith(".pptx"):
+            mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        elif filename_lower.endswith((".mp4", ".mov", ".mkv", ".webm")):
+            mime = "video/mp4"
+
+    # Find course_input source nodes (no incoming edges)
+    nodes_with_incoming = {e.target for e in body.edges}
+    source_nodes = [
+        n.id for n in body.nodes
+        if n.type == "course_input" and n.id not in nodes_with_incoming
+    ]
+    if not source_nodes:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Pipeline has no course_input source node. "
+                "Add a course_input node with no incoming edges to receive the file."
+            ),
+        )
+
+    run_nodes = _request_to_runner_nodes(body.nodes)
+    run_edges = _request_to_runner_edges(body.edges)
+
+    errors = validate_pipeline(run_nodes, run_edges)
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Pipeline validation failed", "errors": errors},
+        )
+
+    run_id = str(uuid.uuid4())
+    runner = PipelineRunner(run_nodes, run_edges)
+    _seed_runner(runner, body.initial_inputs)
+
+    # Provide file bytes as INPUT to each course_input source node.
+    # Using source_inputs (not run_data) so the block still executes and
+    # extracts text — run_data seeding would bypass execution entirely.
+    for node_id in source_nodes:
+        runner.source_inputs[node_id] = [BlockData(
+            binary=file_bytes,
+            mime_type=mime,
+            metadata={"filename": file.filename or "upload"},
+        )]
+
+    try:
+        outputs = await runner.execute(body.params)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    _binary_store[run_id] = {nid: bd for nid, bd in runner.run_data.items()}
+
+    return PipelineRunResponse(
+        run_id=run_id,
+        outputs=_serialise_outputs(outputs),
+    )
 
 
 @router.get(

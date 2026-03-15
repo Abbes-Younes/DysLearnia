@@ -105,6 +105,34 @@ def retrieve(doc_id: str, query: str, k: int = 5) -> list[str]:
     return [r.payload["text"] for r in results]
 
 
+def get_all_chunks(doc_id: str) -> list[str]:
+    """
+    Return ALL stored chunks for a doc_id in original paragraph order.
+    Uses scroll (full scan) rather than query_points so no chunks are dropped.
+    Returns [] when Qdrant is unavailable.
+    """
+    client = _get_client()
+    if client is None:
+        return []
+    from qdrant_client.models import Filter, FieldCondition, MatchValue, OrderBy
+    doc_filter = Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))])
+    records: list = []
+    offset = None
+    while True:
+        batch, offset = client.scroll(
+            COLLECTION,
+            scroll_filter=doc_filter,
+            limit=100,
+            offset=offset,
+            with_payload=True,
+            order_by=OrderBy(key="chunk_index", direction="asc"),
+        )
+        records.extend(batch)
+        if offset is None:
+            break
+    return [r.payload["text"] for r in records]
+
+
 def search_all_docs(user_id: str, query: str, k: int = 10) -> list[dict]:
     """Cross-document search filtered by user_id."""
     client = _get_client()
