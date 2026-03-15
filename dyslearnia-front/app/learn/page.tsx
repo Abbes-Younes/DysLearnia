@@ -124,8 +124,11 @@ function ResultsPanel({
 function Flow() {
   const [nodes, setNodes] = useState<Node[]>([placeholderNode]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+  const { addWorkflow, user } = useApp();
 
   // Block registry from backend
   const [blocks, setBlocks] = useState<BlockDescription[]>([]);

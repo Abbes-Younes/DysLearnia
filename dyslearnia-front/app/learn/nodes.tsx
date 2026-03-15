@@ -120,12 +120,13 @@ function NodeShell({
           <Handle
             type="target"
             position={Position.Left}
-            className="!w-2.5 !h-2.5 !bg-gray-400 !-left-2"
+            className="bg-gray-400! w-2.5 h-2.5 !-left-2"
           />
         )}
         <button
           onClick={(e) => { e.stopPropagation(); deleteElements({ nodes: [{ id }] }); }}
           className="absolute -top-2 -right-2 z-10 hidden h-5 w-5 items-center justify-center rounded-full bg-error text-white shadow-md transition-transform hover:scale-110 group-hover/node:flex"
+          aria-label="Delete node"
         >
           <Trash2 size={10} />
         </button>
@@ -139,7 +140,7 @@ function NodeShell({
           <Handle
             type="source"
             position={Position.Right}
-            className="!w-2.5 !h-2.5 !bg-gray-400 !-right-2"
+            className="bg-gray-400! w-2.5 h-2.5 !-right-2"
           />
         )}
       </div>
