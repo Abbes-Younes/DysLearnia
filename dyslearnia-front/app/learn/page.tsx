@@ -213,7 +213,7 @@ function Flow() {
   return (
     <div className="flex h-screen w-screen">
       {/* Sidebar toolbox */}
-      <aside className="flex w-[240px] flex-col border-r border-border bg-card p-4">
+      <aside className="flex w-60 flex-col border-r border-border bg-card p-4">
         <h2 className="mb-1 text-lg font-bold text-foreground">
           Learning Tools
         </h2>

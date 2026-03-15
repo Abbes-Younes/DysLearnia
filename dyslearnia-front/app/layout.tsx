@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { AppProvider } from "@/lib/context/app-context";
+import { Navbar } from "@/components/navbar";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Dyslearnia",
@@ -18,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className="antialiased">
-        {children}
+        <AppProvider>
+          <Navbar />
+          <main className="min-h-screen">{children}</main>
+        </AppProvider>
       </body>
     </html>
   );
