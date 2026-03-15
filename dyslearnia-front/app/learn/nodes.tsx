@@ -1,6 +1,5 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
 import {
   Handle,
   Position,
@@ -10,13 +9,81 @@ import {
 import {
   Trash2,
   Plus,
-  PenLine,
+  FileText,
   Scissors,
   Volume2,
-  MoveHorizontal,
   Type,
   CheckCircle2,
+  Brain,
+  HelpCircle,
+  Lightbulb,
+  BookOpen,
+  Network,
+  Gamepad2,
+  Image,
+  FileDown,
+  Presentation,
+  Music,
+  Video,
+  Search,
+  type LucideIcon,
 } from "lucide-react";
+
+// ── Icon & color mapping for known block types ──────────────────────────────
+
+const BLOCK_ICONS: Record<string, LucideIcon> = {
+  course_input: FileText,
+  summarizer: Scissors,
+  simplified_text: BookOpen,
+  quiz_builder: HelpCircle,
+  key_concepts: Lightbulb,
+  knowledge_graph: Network,
+  flashcards: Brain,
+  gap_detector: Search,
+  gamification: Gamepad2,
+  dyslexia_font: Type,
+  infographic: Image,
+  tts: Volume2,
+  pdf_unifier: FileDown,
+  pptx_unifier: Presentation,
+  audio_unifier: Music,
+  video_unifier: Video,
+};
+
+const GROUP_COLORS: Record<string, string> = {
+  input: "#4a9b8e",
+  transform: "#e8a838",
+  output: "#22c55e",
+};
+
+const BLOCK_COLORS: Record<string, string> = {
+  course_input: "#4a9b8e",
+  summarizer: "#e8a838",
+  simplified_text: "#f59e0b",
+  quiz_builder: "#ef4444",
+  key_concepts: "#eab308",
+  knowledge_graph: "#06b6d4",
+  flashcards: "#8b5cf6",
+  gap_detector: "#f97316",
+  gamification: "#ec4899",
+  dyslexia_font: "#6366f1",
+  infographic: "#14b8a6",
+  tts: "#6366f1",
+  pdf_unifier: "#22c55e",
+  pptx_unifier: "#10b981",
+  audio_unifier: "#059669",
+  video_unifier: "#047857",
+};
+
+export function getBlockIcon(blockName: string): LucideIcon {
+  return BLOCK_ICONS[blockName] || CheckCircle2;
+}
+
+export function getBlockColor(blockName: string, group?: string): string {
+  return BLOCK_COLORS[blockName] || GROUP_COLORS[group || "transform"] || "#6b7280";
+}
+
+// ── Node Shell (shared visual wrapper) ──────────────────────────────────────
 
 function NodeShell({
   id,
@@ -25,6 +92,7 @@ function NodeShell({
   color,
   hasSource = true,
   hasTarget = true,
+  status,
 }: {
   id: string;
   label: string;
@@ -32,8 +100,18 @@ function NodeShell({
   color: string;
   hasSource?: boolean;
   hasTarget?: boolean;
+  status?: "idle" | "running" | "done" | "error";
 }) {
   const { deleteElements } = useReactFlow();
+
+  const statusRing =
+    status === "running"
+      ? "ring-2 ring-blue-400 animate-pulse"
+      : status === "done"
+        ? "ring-2 ring-green-400"
+        : status === "error"
+          ? "ring-2 ring-red-400"
+          : "";
 
   return (
     <div className="group/node flex flex-col items-center gap-2">
@@ -52,7 +130,7 @@ function NodeShell({
           <Trash2 size={10} />
         </button>
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-lg border-2 shadow-md"
+          className={`flex h-12 w-12 items-center justify-center rounded-lg border-2 shadow-md ${statusRing}`}
           style={{ borderColor: color, backgroundColor: `${color}15` }}
         >
           <Icon size={22} style={{ color }} />
@@ -72,73 +150,31 @@ function NodeShell({
   );
 }
 
-export function TextInputNode({ id, data }: NodeProps) {
+// ── Dynamic Node (renders any block from backend metadata) ──────────────────
+
+export function DynamicNode({ id, data }: NodeProps) {
+  const blockName = data.blockName as string || "";
+  const group = data.group as string || "transform";
+  const label = (data.label as string) || blockName;
+  const status = data.status as "idle" | "running" | "done" | "error" | undefined;
+
+  const Icon = getBlockIcon(blockName);
+  const color = getBlockColor(blockName, group);
+
   return (
     <NodeShell
       id={id}
-      label={data.label as string}
-      icon={PenLine}
-      color="#4a9b8e"
-      hasTarget={false}
+      label={label}
+      icon={Icon}
+      color={color}
+      hasTarget={group !== "input"}
+      hasSource={group !== "output"}
+      status={status}
     />
   );
 }
 
-export function SummarizeNode({ id, data }: NodeProps) {
-  return (
-    <NodeShell
-      id={id}
-      label={data.label as string}
-      icon={Scissors}
-      color="#e8a838"
-    />
-  );
-}
-
-export function TTSNode({ id, data }: NodeProps) {
-  return (
-    <NodeShell
-      id={id}
-      label={data.label as string}
-      icon={Volume2}
-      color="#6366f1"
-    />
-  );
-}
-
-export function SpacingNode({ id, data }: NodeProps) {
-  return (
-    <NodeShell
-      id={id}
-      label={data.label as string}
-      icon={MoveHorizontal}
-      color="#d4806b"
-    />
-  );
-}
-
-export function FontFlipNode({ id, data }: NodeProps) {
-  return (
-    <NodeShell
-      id={id}
-      label={data.label as string}
-      icon={Type}
-      color="#8b5cf6"
-    />
-  );
-}
-
-export function OutputNode({ id, data }: NodeProps) {
-  return (
-    <NodeShell
-      id={id}
-      label={data.label as string}
-      icon={CheckCircle2}
-      color="#22c55e"
-      hasSource={false}
-    />
-  );
-}
+// ── Placeholder Node ────────────────────────────────────────────────────────
 
 export function PlaceholderNode() {
   return (
@@ -153,12 +189,9 @@ export function PlaceholderNode() {
   );
 }
 
+// ── Node type registry for React Flow ───────────────────────────────────────
+
 export const nodeTypes = {
-  textInput: TextInputNode,
-  summarize: SummarizeNode,
-  tts: TTSNode,
-  spacing: SpacingNode,
-  fontFlip: FontFlipNode,
-  result: OutputNode,
+  dynamic: DynamicNode,
   placeholder: PlaceholderNode,
 };
