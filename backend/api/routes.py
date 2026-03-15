@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Form
-
+import json as json_lib
+from core.pipeline import run_pipeline, validate_pipeline
 from api.schemas import (
     SimplifyRequest, SimplifyResponse,
     QuizRequest, QuizResponse,
@@ -66,7 +67,75 @@ async def process_pdf(
         "quiz": quiz_result.get("quiz", []),
     }
 
+@router.post("/run-pipeline")
+async def run_pipeline_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    pipeline: str = Form(...),
+    reading_level: str = Form("adult"),
+    user_question: str = Form(""),
+):
+    """
+    Modular pipeline endpoint.
+    pipeline JSON format:
+    {
+      "nodes": ["simplify", "quiz"],
+      "edges": [{"from": "simplify", "to": "quiz"}]
+    }
+    Agents run in the order defined by edges.
+    Each agent output is automatically available to downstream agents.
+    """
+    # parse pipeline
+    try:
+        flow = json_lib.loads(pipeline)
+        nodes = flow.get("nodes", [])
+        edges = flow.get("edges", [])
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid pipeline JSON.")
 
+    # validate agents
+    from core.pipeline import validate_pipeline
+    errors = validate_pipeline(nodes, edges)
+    if errors:
+        raise HTTPException(status_code=400, detail=errors)
+
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files accepted.")
+
+    contents = await file.read()
+
+    # OCR
+    try:
+        raw_text = extract_text_from_pdf(contents)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    chunks = chunk_text(raw_text, max_chars=1500)
+    first_chunk = chunks[0] if chunks else raw_text[:1500]
+
+    # build initial state
+    initial_state = {
+        "raw_text": first_chunk,
+        "reading_level": reading_level,
+        "user_question": user_question,
+        "task": "",
+    }
+
+    # run the pipeline
+    graph = request.app.state.graph
+    try:
+        final_state = run_pipeline(nodes, edges, initial_state, graph)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "agents_run": final_state.get("agents_run", []),
+        "total_chunks": len(chunks),
+        "simplified_text": final_state.get("simplified_text"),
+        "quiz": final_state.get("quiz"),
+        "hint": final_state.get("hint"),
+        "gamification": final_state.get("gamification"),
+    }
 # ── Individual agent endpoints (still available) ─────────────────
 
 @router.post("/upload-pdf", response_model=PDFUploadResponse)

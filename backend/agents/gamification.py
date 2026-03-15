@@ -28,34 +28,27 @@ Output ONLY valid JSON — no markdown, no explanation, no extra text:
 }
 """.strip()
 
-
 def gamification_node(state: CourseState, llm) -> dict:
-    """Generate badge, message, and next challenge based on student progress."""
+    quiz = state.get("quiz") or []
     progress = state.get("progress") or {
         "score": 0,
-        "total": 0,
+        "total": len(quiz),
         "streak": 1,
         "age_group": state.get("reading_level", "adult")
     }
-
+    print(f"[gamification] progress: {progress}")
     messages = [
         SystemMessage(content=GAMIFICATION_PROMPT),
         HumanMessage(content=f"Student progress:\n{json.dumps(progress)}")
     ]
-
     result = llm.invoke(messages)
-    raw = result.content.strip()
-    raw = re.sub(r"```json|```", "", raw).strip()
-
+    raw = re.sub(r"```json|```", "", result.content).strip()
     try:
-        parsed = json.loads(raw)
-        return {"gamification": parsed}
-    except json.JSONDecodeError:
+        return {"gamification": json.loads(raw)}
+    except:
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if match:
             try:
-                parsed = json.loads(match.group())
-                return {"gamification": parsed}
-            except Exception:
-                pass
+                return {"gamification": json.loads(match.group())}
+            except: pass
         return {"gamification": {}, "gamification_error": raw}

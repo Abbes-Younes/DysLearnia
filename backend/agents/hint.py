@@ -23,23 +23,16 @@ Your response rules:
   "I can only help with questions about this course material."
 """.strip()
 
-
 def hint_node(state: CourseState, llm) -> dict:
-    """Answer a student's question using course text as context."""
     level = state.get("reading_level", "adult")
+    text = state.get("simplified_text") or state.get("raw_text", "")
     question = state.get("user_question", "")
-
+    print(f"[hint] question: {question}")
     if not question:
-        return {"hint": "Please ask a question about the course material."}
-
+        return {"hint": "Please ask a question."}
     messages = [
         SystemMessage(content=HINT_PROMPT),
-        HumanMessage(content=(
-            f"Reading level: {level}\n\n"
-            f"Course text:\n{state['text']}\n\n"
-            f"Student question: {question}"
-        ))
+        HumanMessage(content=f"Reading level: {level}\n\nCourse text:\n{text}\n\nQuestion: {question}")
     ]
-
     result = llm.invoke(messages)
     return {"hint": result.content.strip()}

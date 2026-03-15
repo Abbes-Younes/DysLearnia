@@ -23,17 +23,13 @@ Output only the rewritten text. No intro sentence, no explanation.
 
 
 def simplifier_node(state: CourseState, llm) -> dict:
-    """Rewrite course text to be dyslexia-friendly at the given reading level."""
     level = state.get("reading_level", "adult")
-
-    print(f"[simplifier] Starting... level={level} text_length={len(state['text'])}")
-
+    text = state.get("raw_text", "")
+    print(f"[simplifier] input: {len(text)} chars")
     messages = [
         SystemMessage(content=SIMPLIFIER_PROMPT),
-        HumanMessage(content=f"Reading level: {level}\n\nText:\n{state['text']}")
+        HumanMessage(content=f"Reading level: {level}\n\nText:\n{text}")
     ]
-
-    print("[simplifier] Sending to Ollama...")
     result = llm.invoke(messages)
-    print(f"[simplifier] Got response: {result.content[:100]}")
+    print(f"[simplifier] done")
     return {"simplified_text": result.content.strip()}

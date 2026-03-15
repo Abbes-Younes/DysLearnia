@@ -32,32 +32,23 @@ Output ONLY valid JSON — no markdown, no explanation, no extra text:
 ]
 """.strip()
 
-
 def quiz_node(state: CourseState, llm) -> dict:
-    """Generate 3 multiple-choice questions from course text."""
     level = state.get("reading_level", "adult")
-
+    # smart input — use simplified if available
+    text = state.get("simplified_text") or state.get("raw_text", "")
+    print(f"[quiz] input: {len(text)} chars")
     messages = [
         SystemMessage(content=QUIZ_PROMPT),
-        HumanMessage(content=f"Reading level: {level}\n\nText:\n{state['text']}")
+        HumanMessage(content=f"Reading level: {level}\n\nText:\n{text}")
     ]
-
     result = llm.invoke(messages)
-    raw = result.content.strip()
-
-    # Strip markdown fences if the model added them
-    raw = re.sub(r"```json|```", "", raw).strip()
-
+    raw = re.sub(r"```json|```", "", result.content).strip()
     try:
-        parsed = json.loads(raw)
-        return {"quiz": parsed}
-    except json.JSONDecodeError:
-        # Retry: try to extract a JSON array from anywhere in the response
+        return {"quiz": json.loads(raw)}
+    except:
         match = re.search(r"\[.*\]", raw, re.DOTALL)
         if match:
             try:
-                parsed = json.loads(match.group())
-                return {"quiz": parsed}
-            except Exception:
-                pass
+                return {"quiz": json.loads(match.group())}
+            except: pass
         return {"quiz": [], "quiz_error": raw}

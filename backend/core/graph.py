@@ -34,12 +34,12 @@ def build_graph(ollama_base_url: str, model_name: str) -> object:
     def _gamification(state):
         return gamification_node(state, llm)
 
-    def _router(state: CourseState) -> str:
-        task = state.get("task", "")
-        valid = {"simplify", "quiz", "hint", "gamify"}
-        if task not in valid:
-            raise ValueError(f"Unknown task '{task}'. Must be one of {valid}")
-        return task
+    def _router(state):
+      task = state.get("task", "")
+      valid = {"simplify", "quiz", "hint", "gamify"}
+      if task not in valid:
+        raise ValueError(f"Unknown task '{task}'. Must be one of {valid}")
+      return task
 
     graph = StateGraph(CourseState)
 
