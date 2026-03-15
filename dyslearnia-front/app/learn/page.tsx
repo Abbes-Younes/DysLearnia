@@ -401,21 +401,21 @@ function Flow() {
           <h2 className="mb-1 text-lg font-bold text-foreground">
             Learning Tools
           </h2>
-          <p className="mb-2 text-xs text-text-secondary">
+          <p className="mb-2 text-sm text-text-secondary">
             Drag blocks onto the canvas to build your pipeline
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {blocksLoading && (
-            <div className="flex items-center gap-2 py-8 text-xs text-text-secondary">
+            <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
               <Loader2 size={14} className="animate-spin" />
               Loading blocks...
             </div>
           )}
 
           {blocksError && (
-            <div className="flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 p-3 text-xs text-error">
+            <div className="flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">
               <AlertCircle size={14} className="mt-0.5 shrink-0" />
               <div>
                 <p className="font-medium">Failed to load blocks</p>
@@ -442,7 +442,7 @@ function Flow() {
             (["input", "transform", "output"] as const).map((group) =>
               groupedBlocks[group]?.length ? (
                 <div key={group} className="mb-4">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
                     {GROUP_LABELS[group]}
                   </p>
                   <div className="flex flex-col gap-1.5">
@@ -454,7 +454,7 @@ function Flow() {
                           key={block.name}
                           draggable
                           onDragStart={(e) => onDragStart(e, block)}
-                          className="flex cursor-grab items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10 active:cursor-grabbing"
+                          className="flex cursor-grab items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-base font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10 active:cursor-grabbing"
                           title={`${block.display_name}\nIn: ${block.input_types.join(", ")}\nOut: ${block.output_types.join(", ")}`}
                         >
                           <div
