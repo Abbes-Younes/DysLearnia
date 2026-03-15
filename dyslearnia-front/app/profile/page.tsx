@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { 
   User, 
   Mail, 
@@ -15,11 +15,13 @@ import {
   Zap,
   Sparkles,
   BookOpen,
-  Award
+  Award,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useApp } from "@/lib/context/app-context";
+import { uploadAvatar } from "@/lib/supabase/queries";
 
 export default function ProfilePage() {
   const { user, updateUser } = useApp();
@@ -32,6 +34,8 @@ export default function ProfilePage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -39,11 +43,43 @@ export default function ProfilePage() {
   const [achievementNotifications, setAchievementNotifications] = useState(true);
   const [workflowUpdates, setWorkflowUpdates] = useState(true);
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     if (name.trim() && name !== user?.name) {
-      updateUser({ name: name.trim() });
+      try {
+        await updateUser({ name: name.trim() });
+      } catch (error) {
+        alert("Failed to update name");
+        return;
+      }
     }
     setIsEditingName(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5MB");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const avatarUrl = await uploadAvatar(user.id, file);
+      await updateUser({ avatarUrl });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert("Failed to upload avatar");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handlePasswordChange = () => {
@@ -103,11 +139,25 @@ export default function ProfilePage() {
                 </div>
               )}
               <button
-                className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors"
+                className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors disabled:opacity-50"
                 aria-label="Change profile picture"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
               >
-                <Camera className="size-4" />
+                {isUploadingAvatar ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Camera className="size-4" />
+                )}
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+                aria-label="Upload profile picture"
+              />
             </div>
             <div>
               <h3 className="text-lg font-semibold">{user?.name}</h3>

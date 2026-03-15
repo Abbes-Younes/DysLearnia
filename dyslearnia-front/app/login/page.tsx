@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect } from 'react'
+import { createClient, getMe } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import * as queries from '@/lib/supabase/queries'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -11,16 +12,76 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkLoading, setCheckLoading] = useState(true)
+
+  // Check if already authenticated using getMe and redirect
+  useEffect(() => {
+    async function checkAuth() {
+      const me = await getMe()
+      setCheckLoading(false)
+      if (me) {
+        router.push('/workflows')
+      }
+    }
+    checkAuth()
+  }, [router])
+
+  // Show loading while checking auth status
+  if (checkLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      setError('Please enter both email and password')
+      return
+    }
+    
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(error.message)
+    
+    try {
+      const { error, data } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      })
+      
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+        return
+      }
+      
+      if (data.user) {
+        // Check if user exists in our database, create if not
+        try {
+          await queries.getUser(data.user.id)
+        } catch {
+          // User doesn't exist, create them
+          try {
+            await queries.createUser(data.user.id, email, email.split('@')[0])
+          } catch (e) {
+            console.error('Error creating user:', e)
+          }
+        }
+        
+        // Use window.location for a more reliable redirect
+        setTimeout(() => {
+          window.location.href = '/workflows'
+        }, 500)
+      }
+    } catch (e) {
+      setError('An unexpected error occurred')
+      console.error(e)
+    } finally {
       setLoading(false)
-    } else {
-      router.push('/dashboard')
     }
   }
 

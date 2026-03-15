@@ -19,15 +19,37 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context/app-context";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { createClient, getMe } from "@/lib/supabase/client";
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, notifications, unreadCount, markAsRead, markAllAsRead, setUser } = useApp();
+  const { user, notifications, unreadCount, markAsRead, markAllAsRead, setUser, isAuthenticated, isLoading: appLoading } = useApp();
+  const [isLoading, setIsLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Check auth using getMe
+  useEffect(() => {
+    async function checkAuth() {
+      const me = await getMe();
+      if (me) {
+        setUser({
+          id: me.id,
+          email: me.email,
+          name: me.name,
+          avatarUrl: undefined,
+          createdAt: new Date(),
+          xp: 0,
+          streak: 0,
+        });
+      }
+      setIsLoading(false);
+    }
+    checkAuth();
+  }, [setUser]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -43,6 +65,11 @@ export function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Show navbar for everyone (authenticated or not)
+  if (isLoading) {
+    return null;
+  }
 
   const getInitials = (name: string) => {
     if (!name) return "?";
@@ -217,8 +244,11 @@ export function Navbar() {
                 <div className="border-t border-border my-1" />
                 <button
                   className="flex items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 w-full transition-colors"
-                  onClick={() => {
+                  onClick={async () => {
                     setShowUserMenu(false);
+                    // Sign out from Supabase
+                    const supabase = createClient();
+                    await supabase.auth.signOut();
                     setUser(null);
                     router.push("/login");
                   }}
