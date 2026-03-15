@@ -9,7 +9,8 @@ from core.graph import build_graph
 from api.routes import router as legacy_router
 
 load_dotenv()
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

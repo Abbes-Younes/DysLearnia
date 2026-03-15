@@ -22,7 +22,6 @@ Output only the rewritten text. No intro sentence, no explanation.
 """.strip()
 
 def simplifier_node(state: CourseState, llm) -> dict:
-    """Rewrite course text to be dyslexia-friendly at the given reading level."""
     level = state.get("reading_level", "adult")
     text = state.get("text", "")
 

@@ -24,8 +24,8 @@ Your response rules:
 """.strip()
 
 def hint_node(state: CourseState, llm) -> dict:
-    """Answer a student's question using course text as context."""
     level = state.get("reading_level", "adult")
+    text = state.get("simplified_text") or state.get("raw_text", "")
     question = state.get("user_question", "")
     text = state.get("text", "")
 

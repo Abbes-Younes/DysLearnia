@@ -16,88 +16,50 @@ import {
   type Edge,
   type OnNodesChange,
   type OnEdgesChange,
+  type OnEdgesDelete,
+  type OnNodesDelete,
   type OnConnect,
   useReactFlow,
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { v4 as uuidv4 } from "uuid";
 import { nodeTypes } from "./nodes";
+import type { LucideIcon } from "lucide-react";
+import {
+  PenLine,
+  Scissors,
+  Volume2,
+  MoveHorizontal,
+  Type,
+  CheckCircle2,
+} from "lucide-react";
 
-const toolbox = [
-  { type: "textInput", label: "Text Input", icon: "📄" },
-  { type: "summarize", label: "Summarize", icon: "✂️" },
-  { type: "tts", label: "Text to Speech", icon: "🔊" },
-  { type: "spacing", label: "Add Spacing", icon: "↔️" },
-  { type: "fontFlip", label: "Flip Font", icon: "🔤" },
-  { type: "result", label: "Output", icon: "✅" },
-] as const;
-
-const initialNodes: Node[] = [
-  {
-    id: "input-1",
-    type: "textInput",
-    position: { x: 250, y: 50 },
-    data: { label: "Text Input" },
-  },
-  {
-    id: "summarize-1",
-    type: "summarize",
-    position: { x: 100, y: 250 },
-    data: { label: "Summarize" },
-  },
-  {
-    id: "spacing-1",
-    type: "spacing",
-    position: { x: 400, y: 250 },
-    data: { label: "Add Spacing" },
-  },
-  {
-    id: "output-1",
-    type: "result",
-    position: { x: 250, y: 450 },
-    data: { label: "Output" },
-  },
+const toolbox: { type: string; label: string; icon: LucideIcon; color: string }[] = [
+  { type: "textInput", label: "Text Input", icon: PenLine, color: "#4a9b8e" },
+  { type: "summarize", label: "Summarize", icon: Scissors, color: "#e8a838" },
+  { type: "tts", label: "Text to Speech", icon: Volume2, color: "#6366f1" },
+  { type: "spacing", label: "Add Spacing", icon: MoveHorizontal, color: "#d4806b" },
+  { type: "fontFlip", label: "Flip Font", icon: Type, color: "#8b5cf6" },
+  { type: "result", label: "Output", icon: CheckCircle2, color: "#22c55e" },
 ];
 
-const initialEdges: Edge[] = [
-  {
-    id: "e-input-summarize",
-    source: "input-1",
-    target: "summarize-1",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "e-input-spacing",
-    source: "input-1",
-    target: "spacing-1",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "e-summarize-output",
-    source: "summarize-1",
-    target: "output-1",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "e-spacing-output",
-    source: "spacing-1",
-    target: "output-1",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-];
+const placeholderNode: Node = {
+  id: "placeholder",
+  type: "placeholder",
+  position: { x: 250, y: 200 },
+  data: {},
+  selectable: false,
+  draggable: false,
+};
 
-let nodeId = 0;
 function getNodeId() {
-  return `node-${++nodeId}`;
+  return uuidv4();
 }
 
 function Flow() {
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  const [nodes, setNodes] = useState<Node[]>([placeholderNode]);
+  const [edges, setEdges] = useState<Edge[]>([]);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
 
@@ -160,6 +122,25 @@ function Flow() {
       );
     },
     [nodes, edges, hasCycle],
+  );
+
+  const onNodesDelete: OnNodesDelete = useCallback(
+    (deleted) => {
+      // Remove edges connected to deleted nodes
+      const deletedIds = new Set(deleted.map((n) => n.id));
+      setEdges((eds) =>
+        eds.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target)),
+      );
+    },
+    [],
+  );
+
+  const onEdgesDelete: OnEdgesDelete = useCallback(
+    (deleted) => {
+      const deletedIds = new Set(deleted.map((e) => e.id));
+      setEdges((eds) => eds.filter((e) => !deletedIds.has(e.id)));
+    },
+    [],
   );
 
   // Detect cycles in the entire graph (not DAG-safe)
@@ -247,7 +228,12 @@ function Flow() {
               onDragStart={(e) => onDragStart(e, tool.type, tool.label)}
               className="flex cursor-grab items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10 active:cursor-grabbing"
             >
-              <span className="text-base">{tool.icon}</span>
+              <div
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border"
+                style={{ borderColor: tool.color, backgroundColor: `${tool.color}15` }}
+              >
+                <tool.icon size={14} style={{ color: tool.color }} />
+              </div>
               {tool.label}
             </div>
           ))}
@@ -276,8 +262,11 @@ function Flow() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
+          onNodesDelete={onNodesDelete}
+          onEdgesDelete={onEdgesDelete}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          deleteKeyCode={["Backspace", "Delete"]}
           nodeTypes={nodeTypes}
           fitView
           className="bg-background"
@@ -288,11 +277,6 @@ function Flow() {
             nodeStrokeWidth={3}
             className="!bg-card !border-border"
           />
-          <Panel position="top-center">
-            <div className="rounded-lg border border-border bg-card/90 px-4 py-2 text-sm font-semibold text-foreground shadow-md backdrop-blur-sm">
-              DysLearnia — Learning Pipeline
-            </div>
-          </Panel>
         </ReactFlow>
       </div>
     </div>
